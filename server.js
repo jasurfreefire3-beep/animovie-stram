@@ -60,18 +60,20 @@ const bigInt = require('big-integer');
 // KONFIGURATSIYA VA ATROF-MUHIT O'ZGARUVCHILARI
 // ============================================================================
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const TG_API_ID = parseInt(process.env.TG_API_ID || '6', 10);
-const TG_API_HASH = process.env.TG_API_HASH || 'eb06d4abfb49dc3eeb1aeb98ae0f581e';
-const TG_BOT_TOKEN = process.env.TG_STREAM_BOT_TOKEN || '8969080492:AAFeXz93y6CjIBv0AmdlfVlE0N53gf_J6gY';
-const TG_STREAM_DOMAIN = process.env.TG_STREAM_DOMAIN || 's3.animem.uz';
+const TG_API_ID = parseInt(process.env.TG_API_ID || '', 10);
+const TG_API_HASH = process.env.TG_API_HASH || '';
+const TG_BOT_TOKEN = process.env.TG_STREAM_BOT_TOKEN || '';
+const TG_STREAM_DOMAIN = process.env.TG_STREAM_DOMAIN || 'stream.animovie.uz';
 const CACHE_DIR = path.resolve(__dirname, process.env.HLS_CACHE_DIR || 'cache');
+
+if (!TG_API_ID || !TG_API_HASH || !TG_BOT_TOKEN) {
+  console.error('⚠️ Telegram config tugallanmagan. .env da TG_API_ID, TG_API_HASH va TG_STREAM_BOT_TOKEN bo\'lishi kerak.');
+}
 
 if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
 
-// Doimiy ishlaydigan zaxira sessiya
-const DEFAULT_VERIFIED_SESSION = '1AgAOMTQ5LjE1NC4xNjcuNTEBuxOcQMgGpwIDM6ZoO26uVoE0bg9YRumiETYCG1gyZwFPHeiJfvGua1MFeYBAboD29xpq7Gz69EDmw2Sx+G0H5EmNIcCh62hjF2Fq+V6+j81Tasqe/LS9wPWRVxHb2K1D0T4GeDJKAXnAvl371KEOoNXjdT28Kh09kQVYkpygd92qmvnfARqd2ZATA5fO4zmh8WRjMsE0C6wFkW1Y8upMT7b8rFzRTqIhyF/anOxtBhH17EeqXL21ZZqAXbi51oMydHgk2vwuxzeLit5xTZ0hDs8jVt/l8xHh3TzPLyAnzdiS9FFKs09dO6T4m2LQbOxUU7HHt/QO3bgbjbq9u8YZOjs=';
 const SESSION_FILE = path.join(CACHE_DIR, 'session.txt');
 const CHANNELS_FILE = path.join(CACHE_DIR, 'channels.json');
 const METADATA_FILE = path.join(CACHE_DIR, 'metadata.json');
@@ -223,14 +225,23 @@ async function getTelegramClient() {
 
   isInitializing = true;
   try {
+    const hasExplicitSession = Object.prototype.hasOwnProperty.call(process.env, 'TG_STREAM_SESSION');
     let sessionString = process.env.TG_STREAM_SESSION || '';
-    if (!sessionString && fs.existsSync(SESSION_FILE)) {
+
+    if (!hasExplicitSession && !sessionString && fs.existsSync(SESSION_FILE)) {
       try {
         sessionString = fs.readFileSync(SESSION_FILE, 'utf8').trim();
       } catch {}
     }
-    if (!sessionString) {
-      sessionString = DEFAULT_VERIFIED_SESSION;
+
+    if (hasExplicitSession && !sessionString && fs.existsSync(SESSION_FILE)) {
+      try {
+        fs.unlinkSync(SESSION_FILE);
+      } catch {}
+    }
+
+    if (!sessionString && !TG_BOT_TOKEN) {
+      throw new Error('Telegram bot token not configured. Set TG_STREAM_BOT_TOKEN in the env before starting the bot.');
     }
 
     const session = new StringSession(sessionString);
